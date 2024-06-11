@@ -2,6 +2,8 @@ import logging
 import json
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, CallbackContext, filters
+from database import get_or_create_player, get_player_id
+
 
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -12,12 +14,14 @@ logger = logging.getLogger(__name__)
 
 KEYBOARD_JOIN = [
             [InlineKeyboardButton("Перейти в зал очікування", callback_data='join_waiting')],
-            [InlineKeyboardButton("Знайти гравця", callback_data='find_player')]
+            [InlineKeyboardButton("Знайти гравця", callback_data='find_player')],
+            [InlineKeyboardButton("Мій ігровий ID", callback_data='check_id')]
         ]
 JOIN_MARKUP = InlineKeyboardMarkup(KEYBOARD_JOIN)
 KEYBOARD_LEAVE = [
                 [InlineKeyboardButton("Вийти із залу очікування", callback_data='leave_waiting')],
-                [InlineKeyboardButton("Знайти гравця", callback_data='find_player')]
+                [InlineKeyboardButton("Знайти гравця", callback_data='find_player')],
+                [InlineKeyboardButton("Мій ігровий ID", callback_data='check_id')]
             ]
 LEAVE_MARKUP = InlineKeyboardMarkup(KEYBOARD_LEAVE)
 
@@ -39,6 +43,11 @@ async def waiting_room_check(query, user_id) -> None:
 
 async def start(update: Update, context: CallbackContext) -> None:
     user_id = update.message.from_user.id
+    first_name = update.message.from_user.first_name
+    username = update.message.from_user.username
+
+    get_or_create_player(user_id, first_name, username)
+
     if user_states.get(user_id):
         await update.message.reply_text("Ви вже почали користуватися ботом.")
     else:
@@ -140,6 +149,11 @@ async def button(update: Update, context: CallbackContext) -> None:
 
     elif query.data.startswith('move'):
         await handle_move(update, context)
+
+    elif query.data == 'check_id':
+        player_id = get_player_id(user_id)
+        reply_markup = update.effective_message.reply_markup
+        await query.edit_message_text(text=f"Ваш ігровий ID:\n{player_id}", reply_markup=reply_markup)
 
 
 async def start_game(user_id, username, opponent_id, opponent_name, context):
@@ -299,10 +313,11 @@ async def announce_draw(context, user_id):
 
 def main() -> None:
     print(f'Starting bot...')
+
     with open('credentials.json', 'r') as f:
         credentials = json.load(f)
 
-    TOKEN = credentials["TOKEN"]
+    TOKEN = credentials.get('TOKEN')
 
     application = Application.builder().token(TOKEN).build()
 
