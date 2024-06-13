@@ -2,7 +2,6 @@ import sqlite3
 import secrets
 import string
 from contextlib import closing
-
 DATABASE_NAME = 'tic_tac_toe.db'
 
 
@@ -11,7 +10,7 @@ def connect_db():
 
 
 def generate_unique_player_id():
-    alphabet = string.ascii_letters + string.digits
+    alphabet = string.ascii_letfters + string.digits
     while True:
         player_id = ''.join(secrets.choice(alphabet) for _ in range(6))
         return player_id
