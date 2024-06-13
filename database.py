@@ -10,7 +10,7 @@ def connect_db():
 
 
 def generate_unique_player_id():
-    alphabet = string.ascii_letfters + string.digits
+    alphabet = string.ascii_letters + string.digits
     while True:
         player_id = ''.join(secrets.choice(alphabet) for _ in range(6))
         return player_id
