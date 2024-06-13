@@ -314,7 +314,7 @@ async def announce_draw(context, user_id):
 def main() -> None:
     print(f'Starting bot...')
 
-    with open('credentials.json', 'r') as f:
+    with open('D:\\PythonProjects\\Python-script\\credentials.json', 'r') as f:
         credentials = json.load(f)
 
     TOKEN = credentials.get('TOKEN')
