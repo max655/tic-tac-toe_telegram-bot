@@ -46,7 +46,7 @@ async def start(update: Update, context: CallbackContext) -> None:
     first_name = update.message.from_user.first_name
     username = update.message.from_user.username
 
-    user_state = user_states.setdefault(user_id, {'awaiting_id': None,
+    user_state = user_states.setdefault(user_id, {'awaiting_id': False,
                                                   'started': False})
     get_or_create_player(user_id, first_name, username)
 
@@ -54,13 +54,16 @@ async def start(update: Update, context: CallbackContext) -> None:
         await update.message.reply_text("Ви вже почали користуватися ботом.")
     else:
         user_state['started'] = True
-        await send_start_message(update.message, user_id)
+        await send_start_message(context, user_id)
 
 
-async def send_start_message(message, user_id):
-    sent_message = await message.reply_text("Привіт! Це гра в хрестики-нулики. "
-                                            "Ви можете перейти в зал очікування або шукати гравця.",
-                                            reply_markup=JOIN_MARKUP)
+async def send_start_message(context, user_id: int):
+    sent_message = await context.bot.send_message(
+        chat_id=user_id,
+        text="Привіт! Це гра в хрестики-нулики. "
+        "Ви можете перейти в зал очікування або шукати гравця.",
+        reply_markup=JOIN_MARKUP
+    )
     track_user_message(user_id, sent_message)
 
 
@@ -303,8 +306,12 @@ async def handle_move(update, context):
         del games_in_progress[user_id]
         del games_in_progress[opponent_id]
 
-        del user_states[user_id]
-        del user_states[opponent_id]
+        await context.bot.send_message(chat_id=user_id,
+                                       text='Ви повернулися до головного меню.',
+                                       reply_markup=JOIN_MARKUP)
+        await context.bot.send_message(chat_id=opponent_id,
+                                       text='Ви повернулися до головного меню.',
+                                       reply_markup=JOIN_MARKUP)
         return
     elif ' ' not in game['board']:
         await announce_draw(context, user_id)
@@ -315,8 +322,12 @@ async def handle_move(update, context):
         del games_in_progress[user_id]
         del games_in_progress[opponent_id]
 
-        del user_states[user_id]
-        del user_states[opponent_id]
+        await context.bot.send_message(chat_id=user_id,
+                                       text='Ви повернулися до головного меню.',
+                                       reply_markup=JOIN_MARKUP)
+        await context.bot.send_message(chat_id=opponent_id,
+                                       text='Ви повернулися до головного меню.',
+                                       reply_markup=JOIN_MARKUP)
         return
 
     game['turn'] = opponent_id if user_id == game['turn'] else user_id
