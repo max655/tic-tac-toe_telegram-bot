@@ -15,13 +15,13 @@ logger = logging.getLogger(__name__)
 KEYBOARD_JOIN = [
             [InlineKeyboardButton("Перейти в зал очікування", callback_data='join_waiting')],
             [InlineKeyboardButton("Знайти гравця", callback_data='find_player')],
-            [InlineKeyboardButton("Налаштування", callback_data='settings')],
+            [InlineKeyboardButton("Налаштування", callback_data='settings')]
         ]
 JOIN_MARKUP = InlineKeyboardMarkup(KEYBOARD_JOIN)
 KEYBOARD_LEAVE = [
                 [InlineKeyboardButton("Вийти із залу очікування", callback_data='leave_waiting')],
                 [InlineKeyboardButton("Знайти гравця", callback_data='find_player')],
-                [InlineKeyboardButton("Налаштування", callback_data='settings')],
+                [InlineKeyboardButton("Налаштування", callback_data='settings')]
             ]
 LEAVE_MARKUP = InlineKeyboardMarkup(KEYBOARD_LEAVE)
 
@@ -284,11 +284,9 @@ async def handle_move(update, context):
     opponent_id = game['opponent_id']
 
     if user_id != game['turn']:
-        await query.answer(text="Зараз не ваш хід!")
         return
 
     if game['board'][move_index] != ' ':
-        await query.answer(text="Неправильний хід!")
         return
 
     user_symbol = game['symbol']

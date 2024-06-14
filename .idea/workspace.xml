@@ -6,7 +6,6 @@
   <component name="ChangeListManager">
     <list default="true" id="7ce26ab9-693c-4858-ab42-b26d0cd4aa7e" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/database.py" beforeDir="false" afterPath="$PROJECT_DIR$/database.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/tic-tac-toe.py" beforeDir="false" afterPath="$PROJECT_DIR$/tic-tac-toe.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/tic_tac_toe.db" beforeDir="false" afterPath="$PROJECT_DIR$/tic_tac_toe.db" afterDir="false" />
     </list>
