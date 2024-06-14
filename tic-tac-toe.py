@@ -2,7 +2,7 @@ import logging
 import json
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, CallbackContext, filters
-from database import get_or_create_player, get_player_id
+from database import get_or_create_player, get_player_id, get_player_name
 
 
 logging.basicConfig(
@@ -15,13 +15,13 @@ logger = logging.getLogger(__name__)
 KEYBOARD_JOIN = [
             [InlineKeyboardButton("Перейти в зал очікування", callback_data='join_waiting')],
             [InlineKeyboardButton("Знайти гравця", callback_data='find_player')],
-            [InlineKeyboardButton("Мій ігровий ID", callback_data='check_id')]
+            [InlineKeyboardButton("Налаштування", callback_data='settings')],
         ]
 JOIN_MARKUP = InlineKeyboardMarkup(KEYBOARD_JOIN)
 KEYBOARD_LEAVE = [
                 [InlineKeyboardButton("Вийти із залу очікування", callback_data='leave_waiting')],
                 [InlineKeyboardButton("Знайти гравця", callback_data='find_player')],
-                [InlineKeyboardButton("Мій ігровий ID", callback_data='check_id')]
+                [InlineKeyboardButton("Налаштування", callback_data='settings')],
             ]
 LEAVE_MARKUP = InlineKeyboardMarkup(KEYBOARD_LEAVE)
 
@@ -46,12 +46,14 @@ async def start(update: Update, context: CallbackContext) -> None:
     first_name = update.message.from_user.first_name
     username = update.message.from_user.username
 
+    user_state = user_states.setdefault(user_id, {'awaiting_id': None,
+                                                  'started': False})
     get_or_create_player(user_id, first_name, username)
 
-    if user_states.get(user_id):
+    if user_state.get('started'):
         await update.message.reply_text("Ви вже почали користуватися ботом.")
     else:
-        user_states[user_id] = True
+        user_state['started'] = True
         await send_start_message(update.message, user_id)
 
 
@@ -63,7 +65,30 @@ async def send_start_message(message, user_id):
 
 
 async def handle_message(update: Update, context: CallbackContext) -> None:
-    await update.message.reply_text("Неправильна команда.")
+    user_id = update.message.from_user.id
+    username = update.message.from_user.first_name
+
+    if user_states.get(user_id, {}).get('awaiting_id'):
+        player_id = update.message.text.strip()
+
+        player_name = get_player_name(player_id)
+        if player_name:
+            if player_name != username:
+                keyboard = [
+                    [InlineKeyboardButton(player_name, callback_data=f'select_player_{uid}')] for uid, player_name in
+                    waiting_room.items() if uid != user_id
+                ]
+                keyboard.append([InlineKeyboardButton("Назад", callback_data='go_back')])
+                reply_markup = InlineKeyboardMarkup(keyboard)
+                await context.bot.send_message(chat_id=user_id, text=f'Гравця знайдено.',
+                                               reply_markup=reply_markup)
+            else:
+                await context.bot.send_message(chat_id=user_id, text=f'Ви не можете грати самі з собою.')
+        else:
+            await context.bot.send_message(chat_id=user_id, text=f'Гравця з ID ({player_id}) не знайдено '
+                                                                 f'або він ще не перейшов в зал очікування.')
+    else:
+        await update.message.reply_text("Неправильна команда.")
 
 
 def track_user_message(user_id, message):
@@ -101,15 +126,23 @@ async def button(update: Update, context: CallbackContext) -> None:
             track_user_message(user_id, message)
 
     elif query.data == 'find_player':
+        current_markup = update.effective_message.reply_markup
+
+        if user_id not in user_states:
+            user_states[user_id] = {'started': True}
+
+        user_states[user_id]['reply_markup'] = current_markup
         if waiting_room:
             if not (user_id in waiting_room and len(waiting_room) == 1):
                 keyboard = [
                     [InlineKeyboardButton(uname, callback_data=f'select_player_{uid}')] for uid, uname in
                     waiting_room.items() if uid != user_id
                 ]
+                keyboard.append([InlineKeyboardButton("Пошук гравця по ID", callback_data='find_player_by_id')])
+                keyboard.append([InlineKeyboardButton("Назад", callback_data='go_back')])
                 if keyboard:
                     reply_markup = InlineKeyboardMarkup(keyboard)
-                    message = await query.edit_message_text(text="Оберіть гравця, з ким бажаєте почати гру:",
+                    message = await query.edit_message_text(text="Список доступних гравців:",
                                                             reply_markup=reply_markup)
                     track_user_message(user_id, message)
             else:
@@ -124,7 +157,8 @@ async def button(update: Update, context: CallbackContext) -> None:
         if opponent_name:
             await start_game(user_id, username, opponent_id, opponent_name, context)
         else:
-            await query.edit_message_text(text="Обраний гравець більше недоступний.")
+            reply_markup = InlineKeyboardMarkup([[InlineKeyboardButton("Назад", callback_data='go_back')]])
+            await query.edit_message_text(text="Обраний гравець більше недоступний.", reply_markup=reply_markup)
 
     elif query.data.startswith('symbol_choice_'):
         _, _, user_id_str, symbol = query.data.split('_')
@@ -152,8 +186,31 @@ async def button(update: Update, context: CallbackContext) -> None:
 
     elif query.data == 'check_id':
         player_id = get_player_id(user_id)
-        reply_markup = update.effective_message.reply_markup
+        keyboard = [[InlineKeyboardButton("Назад", callback_data='go_back')]]
+        reply_markup = InlineKeyboardMarkup(keyboard)
         await query.edit_message_text(text=f"Ваш ігровий ID:\n{player_id}", reply_markup=reply_markup)
+
+    elif query.data == 'go_back':
+        previous_markup = user_states[user_id]['reply_markup']
+        if user_states[user_id]['awaiting_id']:
+            del user_states[user_id]['awaiting_id']
+        await query.edit_message_text(text='Ви повернулися до головного меню.', reply_markup=previous_markup)
+
+    elif query.data == 'find_player_by_id':
+        updated_markup = InlineKeyboardMarkup(
+            [[InlineKeyboardButton("Назад", callback_data='go_back')]])
+
+        await query.edit_message_text(text='Введіть ID гравця:', reply_markup=updated_markup)
+        user_states[user_id]['awaiting_id'] = True
+
+    elif query.data == 'settings':
+        current_markup = update.effective_message.reply_markup
+        user_states[user_id]['reply_markup'] = current_markup
+
+        keyboard = [[InlineKeyboardButton("Мій ігровий ID", callback_data='check_id')],
+                    [InlineKeyboardButton("Назад", callback_data='go_back')]]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await query.edit_message_text(text="Налаштування:", reply_markup=reply_markup)
 
 
 async def start_game(user_id, username, opponent_id, opponent_name, context):
