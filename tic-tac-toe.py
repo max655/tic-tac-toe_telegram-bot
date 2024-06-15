@@ -3,7 +3,7 @@ import json
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, CallbackContext, filters
 from database import get_or_create_player, get_player_id, get_player_name
-from functions import set_turn_timer, show_board, check_winner
+from functions import set_turn_timer, show_board, check_winner, announce_winner, announce_draw
 from common import games_in_progress, timers, user_board_message_ids, JOIN_MARKUP, LEAVE_MARKUP
 
 logging.basicConfig(
