@@ -3,7 +3,8 @@ import json
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, CallbackContext, filters
 from database import get_or_create_player, get_player_id, get_player_name
-
+from functions import set_turn_timer, show_board, check_winner
+from common import games_in_progress, timers, user_board_message_ids, JOIN_MARKUP, LEAVE_MARKUP
 
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -12,24 +13,9 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
-KEYBOARD_JOIN = [
-            [InlineKeyboardButton("Перейти в зал очікування", callback_data='join_waiting')],
-            [InlineKeyboardButton("Знайти гравця", callback_data='find_player')],
-            [InlineKeyboardButton("Налаштування", callback_data='settings')]
-        ]
-JOIN_MARKUP = InlineKeyboardMarkup(KEYBOARD_JOIN)
-KEYBOARD_LEAVE = [
-                [InlineKeyboardButton("Вийти із залу очікування", callback_data='leave_waiting')],
-                [InlineKeyboardButton("Знайти гравця", callback_data='find_player')],
-                [InlineKeyboardButton("Налаштування", callback_data='settings')]
-            ]
-LEAVE_MARKUP = InlineKeyboardMarkup(KEYBOARD_LEAVE)
-
 waiting_room = {}
-games_in_progress = {}
 user_messages = {}
 user_states = {}
-user_board_message_ids = {}
 
 
 async def waiting_room_check(query, user_id) -> None:
@@ -182,6 +168,7 @@ async def button(update: Update, context: CallbackContext) -> None:
             await context.bot.send_message(chat_id=opponent_id, text="Ваш символ ❌.")
 
         await show_board(context, user_id)
+        await set_turn_timer(context, user_id)
         await show_board(context, opponent_id)
 
     elif query.data.startswith('move'):
@@ -223,6 +210,7 @@ async def start_game(user_id, username, opponent_id, opponent_name, context):
         del waiting_room[user_id]
 
     games_in_progress[user_id] = {
+        'player_id': user_id,
         'username': username,
         'opponent_id': opponent_id,
         'board': [' ' for _ in range(9)],
@@ -231,6 +219,7 @@ async def start_game(user_id, username, opponent_id, opponent_name, context):
     }
 
     games_in_progress[opponent_id] = {
+        'player_id': opponent_id,
         'username': opponent_name,
         'opponent_id': user_id,
         'board': games_in_progress[user_id]['board'],
@@ -257,24 +246,6 @@ async def ask_symbol_choice(user_id, username, opponent_id, context):
     msg = await context.bot.send_message(chat_id=user_id, text="Виберіть ваш символ:", reply_markup=reply_markup)
     track_user_message(user_id, msg)
     await context.bot.send_message(chat_id=opponent_id, text=f"{username} вибирає свій символ...")
-
-
-async def show_board(context, user_id):
-    game = games_in_progress[user_id]
-    board = game['board']
-    turn = game['turn']
-    text = "Ваш хід." if user_id == turn else "Хід суперника."
-    keyboard = [
-        [InlineKeyboardButton(board[i * 3 + j], callback_data=f'move{i * 3 + j}') for j in range(3)] for i in range(3)
-    ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-
-    if user_id not in user_board_message_ids:
-        message = await context.bot.send_message(chat_id=user_id, text=text, reply_markup=reply_markup)
-        user_board_message_ids[user_id] = message.message_id
-    else:
-        await context.bot.edit_message_text(chat_id=user_id, message_id=user_board_message_ids[user_id], text=text,
-                                            reply_markup=reply_markup)
 
 
 async def handle_move(update, context):
@@ -330,51 +301,20 @@ async def handle_move(update, context):
                                        reply_markup=JOIN_MARKUP)
         return
 
+    if user_id in timers:
+        job = context.job_queue.get_jobs_by_name(f'timer_{user_id}')
+        if job:
+            job[0].schedule_removal()
+        del timers[user_id]
+
     game['turn'] = opponent_id if user_id == game['turn'] else user_id
     games_in_progress[opponent_id]['turn'] = game['turn']
 
     await show_board(context, user_id)
     await show_board(context, opponent_id)
+    await set_turn_timer(context, opponent_id)
 
     await query.answer()
-
-
-def check_winner(board):
-    winning_combinations = [
-        (0, 1, 2), (3, 4, 5), (6, 7, 8),
-        (0, 3, 6), (1, 4, 7), (2, 5, 8),
-        (0, 4, 8), (2, 4, 6)
-    ]
-    for combo in winning_combinations:
-        if board[combo[0]] == board[combo[1]] == board[combo[2]] != ' ':
-            return board[combo[0]]
-    return None
-
-
-async def announce_winner(context, user_id, winner):
-    game = games_in_progress[user_id]
-    opponent_id = game['opponent_id']
-    board = game['board']
-    board_str = "\n".join(["".join(board[i * 3:(i + 1) * 3]) for i in range(3)])
-    board_str = board_str.replace(' ', '⬜')
-    if winner == game['symbol']:
-        await context.bot.send_message(chat_id=user_id, text=f"{game['username']} виграє!\n\n{board_str}")
-        await context.bot.send_message(chat_id=opponent_id, text=f"{game['username']} виграє!\n\n{board_str}")
-    else:
-        await context.bot.send_message(chat_id=user_id, text=f"{games_in_progress[opponent_id]['username']}"
-                                                             f" виграє!\n\n{board_str}")
-        await context.bot.send_message(chat_id=opponent_id, text=f"{games_in_progress[opponent_id]['username']}"
-                                                                 f" виграє!\n\n{board_str}")
-
-
-async def announce_draw(context, user_id):
-    game = games_in_progress[user_id]
-    opponent_id = game['opponent_id']
-    board = game['board']
-    board_str = "\n".join(["".join(board[i * 3:(i + 1) * 3]) for i in range(3)])
-    board_str = board_str.replace(' ', '⬜')
-    await context.bot.send_message(chat_id=user_id, text=f"Нічия!\n\n{board_str}")
-    await context.bot.send_message(chat_id=opponent_id, text=f"Нічия!\n\n{board_str}")
 
 
 def main() -> None:
