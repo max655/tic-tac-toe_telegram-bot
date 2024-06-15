@@ -1,7 +1,7 @@
 
 credentials.json
 .idea/
-__pycache__
+__pycache__/
 .gitattributes
 tic_tac_toe.db
 
