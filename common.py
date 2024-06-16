@@ -15,3 +15,4 @@ KEYBOARD_LEAVE = [
                 [InlineKeyboardButton("Налаштування", callback_data='settings')]
             ]
 LEAVE_MARKUP = InlineKeyboardMarkup(KEYBOARD_LEAVE)
+tasks = []

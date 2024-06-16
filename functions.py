@@ -2,7 +2,7 @@ import telegram.error
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import CallbackContext
 from datetime import timedelta
-from common import games_in_progress, timers, user_board_message_ids, JOIN_MARKUP
+from common import games_in_progress, timers, user_board_message_ids, JOIN_MARKUP, tasks
 import random
 import asyncio
 
@@ -18,7 +18,8 @@ async def set_turn_timer(context: CallbackContext, player_id: int) -> None:
     )
     print(f"Set turn timer for {player_id}")
     timers[player_id] = job
-    asyncio.create_task(set_countdown(context, player_id))
+    task = asyncio.create_task(set_countdown(context, player_id))
+    tasks.append(task)
 
 
 async def turn_timeout(context: CallbackContext) -> None:
@@ -87,6 +88,10 @@ async def turn_timeout(context: CallbackContext) -> None:
                                            reply_markup=JOIN_MARKUP)
             return
 
+        for t in tasks:
+            t.cancel()
+        await asyncio.gather(*tasks, return_exceptions=True)
+
         if player_id in timers:
             job = context.job_queue.get_jobs_by_name(f'timer_{player_id}')
             if job:
@@ -109,8 +114,7 @@ async def set_countdown(context: CallbackContext, user_id: int):
         if countdown_message_id:
             try:
                 if user_id not in timers or user_id not in games_in_progress:
-                    print("Break block 1")
-                    break
+                    return
                 else:
                     await context.bot.edit_message_text(
                         text=f"У вас залишилося {i} секунд!",
@@ -122,10 +126,8 @@ async def set_countdown(context: CallbackContext, user_id: int):
                 pass
         else:
             if user_id not in timers or user_id not in games_in_progress:
-                print("Break block 2")
                 return
 
-            print("Else block")
             message = await context.bot.send_message(chat_id=user_id, text=f"У вас залишилося {i} секунд!")
             countdown_message_id = message.message_id
 

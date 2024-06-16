@@ -1,9 +1,10 @@
 import logging
 import json
+import asyncio
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, CallbackContext, filters
 from database import get_or_create_player, get_player_id, get_player_name
-from functions import set_turn_timer, show_board, check_winner, announce_winner, announce_draw
+from functions import set_turn_timer, show_board, check_winner, announce_winner, announce_draw, tasks
 from common import games_in_progress, timers, user_board_message_ids, JOIN_MARKUP, LEAVE_MARKUP
 
 logging.basicConfig(
@@ -310,6 +311,10 @@ async def handle_move(update, context):
                                        text='Ви повернулися до головного меню.',
                                        reply_markup=JOIN_MARKUP)
         return
+
+    for t in tasks:
+        t.cancel()
+    await asyncio.gather(*tasks, return_exceptions=True)
 
     if user_id in timers:
         job = context.job_queue.get_jobs_by_name(f'timer_{user_id}')
