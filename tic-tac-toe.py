@@ -274,6 +274,11 @@ async def handle_move(update, context):
         del user_board_message_ids[user_id]
         del user_board_message_ids[opponent_id]
 
+        if game['turn'] == user_id:
+            del timers[user_id]
+        else:
+            del timers[opponent_id]
+
         del games_in_progress[user_id]
         del games_in_progress[opponent_id]
 
@@ -292,6 +297,11 @@ async def handle_move(update, context):
 
         del games_in_progress[user_id]
         del games_in_progress[opponent_id]
+
+        if game['turn'] == user_id:
+            del timers[user_id]
+        else:
+            del timers[opponent_id]
 
         await context.bot.send_message(chat_id=user_id,
                                        text='Ви повернулися до головного меню.',

@@ -1,26 +1,24 @@
+import telegram.error
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import CallbackContext
 from datetime import timedelta
 from common import games_in_progress, timers, user_board_message_ids, JOIN_MARKUP
 import random
+import asyncio
 
 TURN_TIME_LIMIT = timedelta(seconds=20)
 
 
 async def set_turn_timer(context: CallbackContext, player_id: int) -> None:
-    if player_id in timers:
-        job = context.job_queue.get_jobs_by_name(f'timer_{player_id}')
-        if job:
-            job[0].schedule_removal()
-        del timers[player_id]
-
     job = context.job_queue.run_once(
         callback=turn_timeout,
         when=TURN_TIME_LIMIT,
         data={'player_id': player_id},
         name=f'timer_{player_id}'
     )
+    print(f"Set turn timer for {player_id}")
     timers[player_id] = job
+    asyncio.create_task(set_countdown(context, player_id))
 
 
 async def turn_timeout(context: CallbackContext) -> None:
@@ -55,6 +53,11 @@ async def turn_timeout(context: CallbackContext) -> None:
             del games_in_progress[player_id]
             del games_in_progress[opponent_id]
 
+            if game['turn'] == player_id:
+                del timers[player_id]
+            else:
+                del timers[opponent_id]
+
             await context.bot.send_message(chat_id=player_id,
                                            text='Ви повернулися до головного меню.',
                                            reply_markup=JOIN_MARKUP)
@@ -71,6 +74,11 @@ async def turn_timeout(context: CallbackContext) -> None:
             del games_in_progress[player_id]
             del games_in_progress[opponent_id]
 
+            if game['turn'] == player_id:
+                del timers[player_id]
+            else:
+                del timers[opponent_id]
+
             await context.bot.send_message(chat_id=player_id,
                                            text='Ви повернулися до головного меню.',
                                            reply_markup=JOIN_MARKUP)
@@ -79,11 +87,49 @@ async def turn_timeout(context: CallbackContext) -> None:
                                            reply_markup=JOIN_MARKUP)
             return
 
+        if player_id in timers:
+            job = context.job_queue.get_jobs_by_name(f'timer_{player_id}')
+            if job:
+                job[0].schedule_removal()
+            del timers[player_id]
+
         game['turn'] = opponent_id
         games_in_progress[opponent_id]['turn'] = game['turn']
         await show_board(context, player_id)
         await show_board(context, opponent_id)
         await set_turn_timer(context, opponent_id)
+
+
+async def set_countdown(context: CallbackContext, user_id: int):
+    await asyncio.sleep(12)
+
+    countdown_message_id = None
+
+    for i in range(7, 0, -1):
+        if countdown_message_id:
+            try:
+                if user_id not in timers or user_id not in games_in_progress:
+                    print("Break block 1")
+                    break
+                else:
+                    await context.bot.edit_message_text(
+                        text=f"У вас залишилося {i} секунд!",
+                        chat_id=user_id,
+                        message_id=countdown_message_id
+                    )
+                    print("Try block")
+            except telegram.error.BadRequest:
+                pass
+        else:
+            if user_id not in timers or user_id not in games_in_progress:
+                print("Break block 2")
+                return
+
+            print("Else block")
+            message = await context.bot.send_message(chat_id=user_id, text=f"У вас залишилося {i} секунд!")
+            countdown_message_id = message.message_id
+
+        await asyncio.sleep(1)
 
 
 async def show_board(context, user_id):
