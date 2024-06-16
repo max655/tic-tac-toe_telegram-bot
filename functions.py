@@ -121,7 +121,6 @@ async def set_countdown(context: CallbackContext, user_id: int):
                         chat_id=user_id,
                         message_id=countdown_message_id
                     )
-                    print("Try block")
             except telegram.error.BadRequest:
                 pass
         else:
