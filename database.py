@@ -48,6 +48,12 @@ def insert_player(user_id, first_name, username):
             ''', (user_id, first_name, username, player_id))
 
 
+def delete_player(user_id):
+    with closing(connect_db()) as db:
+        with db as conn:
+            conn.execute('DELETE FROM players WHERE user_id = ?', (user_id,))
+
+
 def get_player_id(user_id):
     with closing(connect_db()) as db:
         with db as conn:
