@@ -61,10 +61,17 @@ def get_player_id(user_id):
             return row[0] if row else None
 
 
-def get_player_name(player_id):
+def get_player_name_from_player_id(player_id):
     with closing(connect_db()) as db:
         with db as conn:
             row = conn.execute('SELECT first_name FROM players WHERE player_id = ?', (player_id,)).fetchone()
+            return row[0] if row else None
+
+
+def get_player_name_from_user_id(user_id):
+    with closing(connect_db()) as db:
+        with db as conn:
+            row = conn.execute('SELECT first_name FROM players WHERE user_id = ?', (user_id,)).fetchone()
             return row[0] if row else None
 
 
@@ -82,4 +89,3 @@ def get_or_create_player(user_id, first_name, username):
 
 if __name__ == "__main__":
     view_table()
-

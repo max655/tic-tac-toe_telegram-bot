@@ -5,3 +5,4 @@ __pycache__/
 .gitattributes
 tic_tac_toe.db
 
+/credentials2.json

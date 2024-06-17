@@ -3,7 +3,7 @@ import json
 import asyncio
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, CallbackContext, filters
-from database import get_or_create_player, get_player_id, get_player_name
+from database import get_or_create_player, get_player_id, get_player_name_from_player_id, get_player_name_from_user_id
 from functions import set_turn_timer, show_board, check_winner, announce_winner, announce_draw, tasks
 from common import games_in_progress, timers, user_board_message_ids, JOIN_MARKUP, LEAVE_MARKUP
 
@@ -61,7 +61,7 @@ async def handle_message(update: Update, context: CallbackContext) -> None:
     if user_states.get(user_id, {}).get('awaiting_id'):
         player_id = update.message.text.strip()
 
-        player_name = get_player_name(player_id)
+        player_name = get_player_name_from_player_id(player_id)
         if player_name:
             if player_name != username:
                 keyboard = [
@@ -145,7 +145,13 @@ async def button(update: Update, context: CallbackContext) -> None:
         opponent_id = int(query.data.split('_')[-1])
         opponent_name = waiting_room.get(opponent_id)
         if opponent_name:
-            await start_game(user_id, username, opponent_id, opponent_name, context)
+            keyboard = [[InlineKeyboardButton("Підтвердити гру", callback_data=f'confirm_game_{user_id}')],
+                        [InlineKeyboardButton("Відхилити гру", callback_data=f'deny_game_{user_id}')]]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            msg = await context.bot.send_message(chat_id=opponent_id,
+                                                 text=f"Гравець {username} хоче почати з вами гру!",
+                                                 reply_markup=reply_markup)
+            track_user_message(opponent_id, msg)
         else:
             reply_markup = InlineKeyboardMarkup([[InlineKeyboardButton("Назад", callback_data='go_back')]])
             await query.edit_message_text(text="Обраний гравець більше недоступний.", reply_markup=reply_markup)
@@ -202,6 +208,19 @@ async def button(update: Update, context: CallbackContext) -> None:
                     [InlineKeyboardButton("Назад", callback_data='go_back')]]
         reply_markup = InlineKeyboardMarkup(keyboard)
         await query.edit_message_text(text="Налаштування:", reply_markup=reply_markup)
+
+    elif query.data.startswith('confirm_game_'):
+        opponent_id = int(query.data.split('_')[-1])
+        opponent_name = get_player_name_from_user_id(opponent_id)
+        await start_game(user_id, username, opponent_id, opponent_name, context)
+
+    elif query.data.startswith('deny_game_'):
+        opponent_id = int(query.data.split('_')[-1])
+        opponent_name = get_player_name_from_user_id(opponent_id)
+        await clear_previous_message(user_id, context)
+        await context.bot.send_message(chat_id=user_id, text=f'Ви відхилили гру з {opponent_name}.')
+        await context.bot.send_message(chat_id=opponent_id, text=f'Гравець {username} відхилив з вами гру.')
+        return
 
 
 async def start_game(user_id, username, opponent_id, opponent_name, context):
@@ -276,6 +295,9 @@ async def handle_move(update, context):
         del user_board_message_ids[opponent_id]
 
         if game['turn'] == user_id:
+            for t in tasks:
+                t.cancel()
+            await asyncio.gather(*tasks, return_exceptions=True)
             del timers[user_id]
         else:
             del timers[opponent_id]
@@ -300,6 +322,9 @@ async def handle_move(update, context):
         del games_in_progress[opponent_id]
 
         if game['turn'] == user_id:
+            for t in tasks:
+                t.cancel()
+            await asyncio.gather(*tasks, return_exceptions=True)
             del timers[user_id]
         else:
             del timers[opponent_id]

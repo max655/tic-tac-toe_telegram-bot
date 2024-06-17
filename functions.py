@@ -55,6 +55,9 @@ async def turn_timeout(context: CallbackContext) -> None:
             del games_in_progress[opponent_id]
 
             if game['turn'] == player_id:
+                for t in tasks:
+                    t.cancel()
+                await asyncio.gather(*tasks, return_exceptions=True)
                 del timers[player_id]
             else:
                 del timers[opponent_id]
@@ -76,6 +79,9 @@ async def turn_timeout(context: CallbackContext) -> None:
             del games_in_progress[opponent_id]
 
             if game['turn'] == player_id:
+                for t in tasks:
+                    t.cancel()
+                await asyncio.gather(*tasks, return_exceptions=True)
                 del timers[player_id]
             else:
                 del timers[opponent_id]
@@ -113,20 +119,14 @@ async def set_countdown(context: CallbackContext, user_id: int):
     for i in range(7, 0, -1):
         if countdown_message_id:
             try:
-                if user_id not in timers or user_id not in games_in_progress:
-                    return
-                else:
-                    await context.bot.edit_message_text(
-                        text=f"У вас залишилося {i} секунд!",
-                        chat_id=user_id,
-                        message_id=countdown_message_id
-                    )
+                await context.bot.edit_message_text(
+                    text=f"У вас залишилося {i} секунд!",
+                    chat_id=user_id,
+                    message_id=countdown_message_id
+                )
             except telegram.error.BadRequest:
                 pass
         else:
-            if user_id not in timers or user_id not in games_in_progress:
-                return
-
             message = await context.bot.send_message(chat_id=user_id, text=f"У вас залишилося {i} секунд!")
             countdown_message_id = message.message_id
 
