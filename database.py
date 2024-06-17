@@ -81,6 +81,5 @@ def get_or_create_player(user_id, first_name, username):
 
 
 if __name__ == "__main__":
-    delete_player(685837376)
     view_table()
 
