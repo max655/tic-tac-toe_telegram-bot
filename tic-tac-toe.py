@@ -145,10 +145,15 @@ async def button(update: Update, context: CallbackContext) -> None:
             keyboard = [[InlineKeyboardButton("Підтвердити гру", callback_data=f'confirm_game_{user_id}')],
                         [InlineKeyboardButton("Відхилити гру", callback_data=f'deny_game_{user_id}')]]
             reply_markup = InlineKeyboardMarkup(keyboard)
-            msg = await context.bot.send_message(chat_id=opponent_id,
-                                                 text=f"Гравець {username} хоче почати з вами гру!",
-                                                 reply_markup=reply_markup)
-            track_user_message(opponent_id, msg)
+            msg_user = await context.bot.send_message(chat_id=user_id,
+                                                      text=f"Очікуємо відповідь гравця {opponent_name}...\n"
+                                                           f"Максимальний час очікування - 5 хвилин.",
+                                                      reply_markup=reply_markup)
+            msg_opponent = await context.bot.send_message(chat_id=opponent_id,
+                                                          text=f"Гравець {username} хоче почати з вами гру!",
+                                                          reply_markup=reply_markup)
+            track_user_message(user_id, msg_user)
+            track_user_message(opponent_id, msg_opponent)
             await set_confirm_timer(context, opponent_id, opponent_name, user_id, username)
         else:
             reply_markup = InlineKeyboardMarkup([[InlineKeyboardButton("Назад", callback_data='go_back')]])
@@ -239,6 +244,7 @@ async def button(update: Update, context: CallbackContext) -> None:
 
         await clear_previous_message(user_id, context)
         await context.bot.send_message(chat_id=user_id, text=f'Ви відхилили гру з {opponent_name}.')
+        await clear_previous_message(opponent_id, context)
         await context.bot.send_message(chat_id=opponent_id, text=f'Гравець {username} відхилив з вами гру.')
         return
 
