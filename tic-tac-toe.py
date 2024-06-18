@@ -226,9 +226,31 @@ async def button(update: Update, context: CallbackContext) -> None:
             user_states[user_id]['reply_markup'] = current_markup
 
         keyboard = [[InlineKeyboardButton("Мій ігровий ID", callback_data='check_id')],
+                    [InlineKeyboardButton("Правила", callback_data='check_rules')],
                     [InlineKeyboardButton("Назад", callback_data='go_back')]]
         reply_markup = InlineKeyboardMarkup(keyboard)
         await query.edit_message_text(text="Налаштування:", reply_markup=reply_markup)
+
+    elif query.data == 'check_rules':
+        if user_id not in user_states:
+            reply_markup = JOIN_MARKUP
+        elif 'reply_markup' in user_states[user_id]:
+            reply_markup = user_states[user_id]['reply_markup']
+        else:
+            reply_markup = JOIN_MARKUP
+
+        await query.edit_message_text(
+            text="<b>Керування</b>\n"
+                 "Взаємодійте з ботом тільки за допомогою кнопок. "
+                 "Лише в функції пошуку гравця по його ігровому ID можете вводити текст в чат.\n\n"
+                 "<b>Зал очікування</b>\n"
+                 "Для початку гри знайдіть гравця в залі очікування або самі зайдіть в зал очікування. "
+                 "На підтвердження гри дається максимум 5 хвилин.\n\n"
+                 "<b>Ігровий процес</b>\n"
+                 "Після підтвердження гри символ обирає той, хто знайшов вас в залі очікування. "
+                 "Після вибору символу починається гра. На хід дається 20 секунд. Якщо за виділений "
+                 "час ви не зробите хід, система зробить хід за вас у випадковій клітинці.\n\n",
+            reply_markup=reply_markup, parse_mode=ParseMode.HTML)
 
     elif query.data.startswith('confirm_game_'):
         opponent_id = int(query.data.split('_')[-1])
