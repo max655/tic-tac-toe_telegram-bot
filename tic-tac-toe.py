@@ -6,6 +6,7 @@ from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQu
 from database import get_or_create_player, get_player_id, get_player_name_from_player_id, get_player_name_from_user_id
 from functions import set_turn_timer, show_board, check_winner, announce_winner, announce_draw, tasks, set_confirm_timer, clear_previous_message
 from common import games_in_progress, timers, user_board_message_ids, JOIN_MARKUP, LEAVE_MARKUP, user_messages
+from telegram.constants import ParseMode
 
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -46,9 +47,20 @@ async def start(update: Update, context: CallbackContext) -> None:
 async def send_start_message(context, user_id: int):
     sent_message = await context.bot.send_message(
         chat_id=user_id,
-        text="Привіт! Це гра в хрестики-нулики. "
-        "Ви можете перейти в зал очікування або шукати гравця.",
-        reply_markup=JOIN_MARKUP
+        text="Привіт! Вітаємо вас в грі хрестики-нулики!\n\n"
+             "<b>Керування</b>\n"
+             "Взаємодійте з ботом тільки за допомогою кнопок. "
+             "Лише в функції пошуку гравця по його ігровому ID можете вводити текст в чат.\n\n"
+             "<b>Зал очікування</b>\n"
+             "Для початку гри знайдіть гравця в залі очікування або самі зайдіть в зал очікування. "
+             "На підтвердження гри дається максимум 5 хвилин.\n\n"
+             "<b>Ігровий процес</b>\n"
+             "Після підтвердження гри символ обирає той, хто знайшов вас в залі очікування. "
+             "Після вибору символу починається гра. На хід дається 20 секунд. Якщо за виділений "
+             "час ви не зробите хід, система зробить хід за вас у випадковій клітинці.\n\n"
+             "Бажаємо вам вдачної гри!",
+        reply_markup=JOIN_MARKUP,
+        parse_mode=ParseMode.HTML
     )
     track_user_message(user_id, sent_message)
 
