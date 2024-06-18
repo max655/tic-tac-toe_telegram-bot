@@ -211,8 +211,9 @@ async def button(update: Update, context: CallbackContext) -> None:
         user_states[user_id]['awaiting_id'] = True
 
     elif query.data == 'settings':
-        current_markup = update.effective_message.reply_markup
-        user_states[user_id]['reply_markup'] = current_markup
+        if user_id in user_states:
+            current_markup = update.effective_message.reply_markup
+            user_states[user_id]['reply_markup'] = current_markup
 
         keyboard = [[InlineKeyboardButton("Мій ігровий ID", callback_data='check_id')],
                     [InlineKeyboardButton("Назад", callback_data='go_back')]]
