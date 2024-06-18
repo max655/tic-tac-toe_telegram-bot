@@ -95,6 +95,7 @@ async def button(update: Update, context: CallbackContext) -> None:
     if query.data == 'join_waiting':
         if user_id not in waiting_room:
             waiting_room[user_id] = username
+            user_states[user_id]['reply_markup'] = LEAVE_MARKUP
             message = await query.edit_message_text(text='Ви перейшли в зал очікування.', reply_markup=LEAVE_MARKUP)
             track_user_message(user_id, message)
         else:
@@ -103,6 +104,7 @@ async def button(update: Update, context: CallbackContext) -> None:
     elif query.data == 'leave_waiting':
         if user_id in waiting_room:
             del waiting_room[user_id]
+            user_states[user_id]['reply_markup'] = JOIN_MARKUP
             message = await query.edit_message_text(text='Ви вийшли із залу очікування.', reply_markup=JOIN_MARKUP)
             track_user_message(user_id, message)
         else:
