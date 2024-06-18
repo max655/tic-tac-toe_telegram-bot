@@ -184,10 +184,15 @@ async def button(update: Update, context: CallbackContext) -> None:
         await query.edit_message_text(text=f"Ваш ігровий ID:\n{player_id}", reply_markup=reply_markup)
 
     elif query.data == 'go_back':
-        previous_markup = user_states[user_id]['reply_markup']
+        if 'reply_markup' in user_states[user_id]:
+            previous_markup = user_states[user_id]['reply_markup']
+        else:
+            previous_markup = JOIN_MARKUP
+
         if user_states[user_id]['awaiting_id']:
             del user_states[user_id]['awaiting_id']
-        await query.edit_message_text(text='Ви повернулися до головного меню.', reply_markup=previous_markup)
+        await query.edit_message_text(text='Ви повернулися до головного меню.',
+                                      reply_markup=previous_markup)
 
     elif query.data == 'find_player_by_id':
         updated_markup = InlineKeyboardMarkup(
