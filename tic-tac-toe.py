@@ -147,8 +147,7 @@ async def button(update: Update, context: CallbackContext) -> None:
             reply_markup = InlineKeyboardMarkup(keyboard)
             msg_user = await context.bot.send_message(chat_id=user_id,
                                                       text=f"Очікуємо відповідь гравця {opponent_name}...\n"
-                                                           f"Максимальний час очікування - 5 хвилин.",
-                                                      reply_markup=reply_markup)
+                                                           f"Максимальний час очікування - 5 хвилин.")
             msg_opponent = await context.bot.send_message(chat_id=opponent_id,
                                                           text=f"Гравець {username} хоче почати з вами гру!",
                                                           reply_markup=reply_markup)
