@@ -4,8 +4,8 @@ import asyncio
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, CallbackContext, filters
 from database import get_or_create_player, get_player_id, get_player_name_from_player_id, get_player_name_from_user_id
-from functions import set_turn_timer, show_board, check_winner, announce_winner, announce_draw, tasks
-from common import games_in_progress, timers, user_board_message_ids, JOIN_MARKUP, LEAVE_MARKUP
+from functions import set_turn_timer, show_board, check_winner, announce_winner, announce_draw, tasks, set_confirm_timer, clear_previous_message
+from common import games_in_progress, timers, user_board_message_ids, JOIN_MARKUP, LEAVE_MARKUP, user_messages
 
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -15,7 +15,6 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 waiting_room = {}
-user_messages = {}
 user_states = {}
 
 
@@ -87,10 +86,6 @@ def track_user_message(user_id, message):
     user_messages[user_id].append(message.message_id)
 
 
-async def clear_previous_message(user_id, context):
-    await context.bot.delete_message(chat_id=user_id, message_id=user_messages[user_id][-1])
-
-
 async def button(update: Update, context: CallbackContext) -> None:
     query = update.callback_query
     await query.answer()
@@ -152,6 +147,7 @@ async def button(update: Update, context: CallbackContext) -> None:
                                                  text=f"Гравець {username} хоче почати з вами гру!",
                                                  reply_markup=reply_markup)
             track_user_message(opponent_id, msg)
+            await set_confirm_timer(context, opponent_id, opponent_name, user_id, username)
         else:
             reply_markup = InlineKeyboardMarkup([[InlineKeyboardButton("Назад", callback_data='go_back')]])
             await query.edit_message_text(text="Обраний гравець більше недоступний.", reply_markup=reply_markup)
@@ -212,11 +208,25 @@ async def button(update: Update, context: CallbackContext) -> None:
     elif query.data.startswith('confirm_game_'):
         opponent_id = int(query.data.split('_')[-1])
         opponent_name = get_player_name_from_user_id(opponent_id)
+
+        if user_id in timers:
+            job = context.job_queue.get_jobs_by_name(f'confirm_timer_{user_id}')
+            if job:
+                job[0].schedule_removal()
+            del timers[user_id]
+
         await start_game(user_id, username, opponent_id, opponent_name, context)
 
     elif query.data.startswith('deny_game_'):
         opponent_id = int(query.data.split('_')[-1])
         opponent_name = get_player_name_from_user_id(opponent_id)
+
+        if user_id in timers:
+            job = context.job_queue.get_jobs_by_name(f'confirm_timer_{user_id}')
+            if job:
+                job[0].schedule_removal()
+            del timers[user_id]
+
         await clear_previous_message(user_id, context)
         await context.bot.send_message(chat_id=user_id, text=f'Ви відхилили гру з {opponent_name}.')
         await context.bot.send_message(chat_id=opponent_id, text=f'Гравець {username} відхилив з вами гру.')

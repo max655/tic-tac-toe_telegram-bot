@@ -2,11 +2,31 @@ import telegram.error
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import CallbackContext
 from datetime import timedelta
-from common import games_in_progress, timers, user_board_message_ids, JOIN_MARKUP, tasks
+from common import games_in_progress, timers, user_board_message_ids, JOIN_MARKUP, tasks, user_messages
 import random
 import asyncio
 
 TURN_TIME_LIMIT = timedelta(seconds=20)
+CONFIRM_TIME_LIMIT = timedelta(minutes=5)
+
+
+async def clear_previous_message(user_id, context):
+    await context.bot.delete_message(chat_id=user_id, message_id=user_messages[user_id][-1])
+
+
+async def set_confirm_timer(context: CallbackContext, player_id: int, username: str,
+                            opponent_id: int, opponent_name: str) -> None:
+    job = context.job_queue.run_once(
+        callback=confirm_timeout,
+        when=CONFIRM_TIME_LIMIT,
+        data={'player_id': player_id,
+              'username': username,
+              'opponent_id': opponent_id,
+              'opponent_name': opponent_name},
+        name=f'confirm_timer_{player_id}'
+    )
+    print(f"Set confirm timer for {player_id}")
+    timers[player_id] = job
 
 
 async def set_turn_timer(context: CallbackContext, player_id: int) -> None:
@@ -16,10 +36,23 @@ async def set_turn_timer(context: CallbackContext, player_id: int) -> None:
         data={'player_id': player_id},
         name=f'timer_{player_id}'
     )
-    print(f"Set turn timer for {player_id}")
     timers[player_id] = job
     task = asyncio.create_task(set_countdown(context, player_id))
     tasks.append(task)
+
+
+async def confirm_timeout(context: CallbackContext) -> None:
+    job = context.job
+    player_id = job.data['player_id']
+    username = job.data['username']
+    opponent_id = job.data['opponent_id']
+    opponent_name = job.data['opponent_name']
+
+    await clear_previous_message(player_id, context)
+    await context.bot.send_message(chat_id=player_id,
+                                   text=f"Ви не відповіли на виклик {opponent_name}.")
+    await context.bot.send_message(chat_id=opponent_id,
+                                   text=f"{username} не відповів(-ла) на ваш виклик.")
 
 
 async def turn_timeout(context: CallbackContext) -> None:

@@ -1,5 +1,6 @@
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
+user_messages = {}
 games_in_progress = {}
 timers = {}
 user_board_message_ids = {}
