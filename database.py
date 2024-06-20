@@ -1,12 +1,18 @@
-import sqlite3
 import secrets
 import string
+import pyodbc
 from contextlib import closing
-DATABASE_NAME = 'tic_tac_toe.db'
+
+server = '94.131.5.213,1433'
+database = 'TicTacToeBot'
+username = 'tictac'
+password = 'tic1tac2toe3M'
+
+connection_string = f'DRIVER={{SQL Server}};SERVER={server};DATABASE={database};UID={username};PWD={password}'
 
 
 def connect_db():
-    return sqlite3.connect(DATABASE_NAME)
+    return pyodbc.connect(connection_string)
 
 
 def generate_unique_player_id():
@@ -43,9 +49,10 @@ def insert_player(user_id, first_name, username):
     with closing(connect_db()) as db:
         with db as conn:
             conn.execute('''
-                INSERT OR IGNORE INTO players (user_id, first_name, username, player_id)
+                INSERT INTO players (user_id, first_name, username, player_id)
                 VALUES (?, ?, ?, ?)
             ''', (user_id, first_name, username, player_id))
+        db.commit()
 
 
 def delete_player(user_id):
@@ -61,17 +68,10 @@ def get_player_id(user_id):
             return row[0] if row else None
 
 
-def get_player_name_from_player_id(player_id):
+def get_player_name(player_id):
     with closing(connect_db()) as db:
         with db as conn:
             row = conn.execute('SELECT first_name FROM players WHERE player_id = ?', (player_id,)).fetchone()
-            return row[0] if row else None
-
-
-def get_player_name_from_user_id(user_id):
-    with closing(connect_db()) as db:
-        with db as conn:
-            row = conn.execute('SELECT first_name FROM players WHERE user_id = ?', (user_id,)).fetchone()
             return row[0] if row else None
 
 
