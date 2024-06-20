@@ -11,8 +11,9 @@ server = credentials.get("SERVER")
 database = credentials.get("DATABASE")
 login = credentials.get("LOGIN")
 password = credentials.get("PASSWORD")
+driver = credentials.get("DRIVER")
 
-connection_string = f'DRIVER={{SQL Server}};SERVER={server};DATABASE={database};UID={login};PWD={password}'
+connection_string = f'DRIVER={driver};SERVER={server};DATABASE={database};UID={login};PWD={password}'
 
 
 def connect_db():
