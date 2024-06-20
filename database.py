@@ -1,14 +1,18 @@
 import secrets
 import string
 import pyodbc
+import json
 from contextlib import closing
 
-server = '94.131.5.213,1433'
-database = 'TicTacToeBot'
-username = 'tictac'
-password = 'tic1tac2toe3M'
+with open('credentials.json', 'r') as f:
+    credentials = json.load(f)
 
-connection_string = f'DRIVER={{SQL Server}};SERVER={server};DATABASE={database};UID={username};PWD={password}'
+server = credentials.get("SERVER")
+database = credentials.get("DATABASE")
+login = credentials.get("LOGIN")
+password = credentials.get("PASSWORD")
+
+connection_string = f'DRIVER={{SQL Server}};SERVER={server};DATABASE={database};UID={login};PWD={password}'
 
 
 def connect_db():
