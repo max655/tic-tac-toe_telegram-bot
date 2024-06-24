@@ -2,6 +2,7 @@ import secrets
 import string
 import pyodbc
 import json
+import pymssql
 from contextlib import closing
 
 with open('credentials.json', 'r') as f:
@@ -17,7 +18,10 @@ connection_string = f'DRIVER={driver};SERVER={server};DATABASE={database};UID={l
 
 
 def connect_db():
-    return pyodbc.connect(connection_string)
+    return pymssql.connect(server=server,
+                           database=database,
+                           user=login,
+                           password=password)
 
 
 def generate_unique_player_id():
@@ -43,7 +47,8 @@ def create_table():
 def view_table():
     with closing(connect_db()) as db:
         with db as conn:
-            cursor = conn.execute('SELECT * FROM players')
+            cursor = conn.cursor()
+            cursor.execute('SELECT * FROM players')
             rows = cursor.fetchall()
             for row in rows:
                 print(row)
@@ -69,7 +74,9 @@ def delete_player(user_id):
 def get_player_id(user_id):
     with closing(connect_db()) as db:
         with db as conn:
-            row = conn.execute('SELECT player_id FROM players WHERE user_id = ?', (user_id,)).fetchone()
+            cursor = conn.cursor()
+            cursor.execute('SELECT player_id FROM players WHERE user_id = %s', (user_id,))
+            row = cursor.fetchone()
             return row[0] if row else None
 
 
@@ -100,4 +107,5 @@ def get_or_create_player(user_id, first_name, username):
 
 
 if __name__ == "__main__":
+    get_player_id(685837376)
     view_table()
