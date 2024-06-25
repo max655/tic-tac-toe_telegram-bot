@@ -41,8 +41,8 @@ def create_table():
             BEGIN
                 CREATE TABLE players (
                     user_id INT UNIQUE,
-                    first_name VARCHAR(20),
-                    username VARCHAR(20),
+                    first_name NVARCHAR(20),
+                    username NVARCHAR(20),
                     player_id CHAR(6) PRIMARY KEY          
                 )
             END
@@ -115,6 +115,13 @@ def get_or_create_player(user_id, first_name, username):
 
     player_id = get_player_id(user_id)
     return player_id
+
+
+def drop_table():
+    with closing(connect_db()) as db:
+        with db as conn:
+            cursor = conn.cursor()
+            cursor.execute('DROP TABLE players')
 
 
 if __name__ == "__main__":
