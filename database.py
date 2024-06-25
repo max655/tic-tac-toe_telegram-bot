@@ -61,6 +61,10 @@ def view_table():
 
 def insert_player(user_id, first_name, username):
     player_id = generate_unique_player_id()
+
+    while get_player_name_from_player_id(player_id):
+        player_id = generate_unique_player_id()
+
     with closing(connect_db()) as db:
         with db as conn:
             cursor = conn.cursor()
