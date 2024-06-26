@@ -17,6 +17,7 @@ logger = logging.getLogger(__name__)
 
 waiting_room = {}
 user_states = {}
+start_messages = {}
 
 
 async def waiting_room_check(query, user_id) -> None:
@@ -38,9 +39,17 @@ async def start(update: Update, context: CallbackContext) -> None:
     get_or_create_player(user_id, first_name, username)
 
     if user_state.get('started'):
-        await update.message.reply_text("Ви вже почали користуватися ботом.")
+        message_id = start_messages[user_id]
+        await context.bot.delete_message(chat_id=user_id, message_id=message_id[0])
+        del start_messages[user_id]
+        await send_start_message(context, user_id)
     else:
         user_state['started'] = True
+
+        if user_id in start_messages:
+            message_id = start_messages[user_id]
+            await context.bot.delete_message(chat_id=user_id, message_id=message_id[0])
+
         await send_start_message(context, user_id)
 
 
@@ -62,6 +71,10 @@ async def send_start_message(context, user_id: int):
         reply_markup=JOIN_MARKUP,
         parse_mode=ParseMode.HTML
     )
+    if user_id not in start_messages:
+        start_messages[user_id] = []
+
+    start_messages[user_id].append(sent_message.message_id)
     track_user_message(user_id, sent_message)
 
 
@@ -363,12 +376,17 @@ async def handle_move(update, context):
         del games_in_progress[user_id]
         del games_in_progress[opponent_id]
 
-        await context.bot.send_message(chat_id=user_id,
-                                       text='Ви повернулися до головного меню.',
-                                       reply_markup=JOIN_MARKUP)
-        await context.bot.send_message(chat_id=opponent_id,
-                                       text='Ви повернулися до головного меню.',
-                                       reply_markup=JOIN_MARKUP)
+        message_user = await context.bot.send_message(chat_id=user_id,
+                                                      text='Ви повернулися до головного меню.',
+                                                      reply_markup=JOIN_MARKUP)
+        message_opponent = await context.bot.send_message(chat_id=opponent_id,
+                                                          text='Ви повернулися до головного меню.',
+                                                          reply_markup=JOIN_MARKUP)
+        start_messages[user_id] = []
+        start_messages[opponent_id] = []
+
+        start_messages[user_id].append(message_user.message_id)
+        start_messages[opponent_id].append(message_opponent.message_id)
         return
     elif ' ' not in game['board']:
         await announce_draw(context, user_id)
@@ -387,12 +405,17 @@ async def handle_move(update, context):
         else:
             del timers[opponent_id]
 
-        await context.bot.send_message(chat_id=user_id,
-                                       text='Ви повернулися до головного меню.',
-                                       reply_markup=JOIN_MARKUP)
-        await context.bot.send_message(chat_id=opponent_id,
-                                       text='Ви повернулися до головного меню.',
-                                       reply_markup=JOIN_MARKUP)
+        message_user = await context.bot.send_message(chat_id=user_id,
+                                                      text='Ви повернулися до головного меню.',
+                                                      reply_markup=JOIN_MARKUP)
+        message_opponent = await context.bot.send_message(chat_id=opponent_id,
+                                                          text='Ви повернулися до головного меню.',
+                                                          reply_markup=JOIN_MARKUP)
+        start_messages[user_id] = []
+        start_messages[opponent_id] = []
+
+        start_messages[user_id].append(message_user)
+        start_messages[opponent_id].append(message_opponent)
         return
 
     for t in tasks:
