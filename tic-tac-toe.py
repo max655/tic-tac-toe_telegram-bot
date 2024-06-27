@@ -54,6 +54,11 @@ async def start(update: Update, context: CallbackContext) -> None:
 
 
 async def send_start_message(context, user_id: int):
+    if user_id in waiting_room:
+        reply_markup = LEAVE_MARKUP
+    else:
+        reply_markup = JOIN_MARKUP
+
     sent_message = await context.bot.send_message(
         chat_id=user_id,
         text="Привіт! Вітаємо вас в грі хрестики-нулики!\n\n"
@@ -68,7 +73,7 @@ async def send_start_message(context, user_id: int):
              "Після вибору символу починається гра. На хід дається 20 секунд. Якщо за виділений "
              "час ви не зробите хід, система зробить хід за вас у випадковій клітинці.\n\n"
              "Бажаємо вам вдачної гри!",
-        reply_markup=JOIN_MARKUP,
+        reply_markup=reply_markup,
         parse_mode=ParseMode.HTML
     )
     if user_id not in start_messages:
