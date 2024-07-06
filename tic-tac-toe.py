@@ -4,8 +4,10 @@ import asyncio
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, CallbackContext, filters
 from database import get_or_create_player, get_player_id, get_player_name_from_player_id, get_player_name_from_user_id
-from functions import set_turn_timer, show_board, check_winner, announce_winner, announce_draw, tasks, set_confirm_timer, clear_previous_message
-from common import games_in_progress, timers, user_board_message_ids, JOIN_MARKUP, LEAVE_MARKUP, user_messages
+from functions import (set_turn_timer, show_board, check_winner, announce_winner, announce_draw, tasks, set_confirm_timer,
+                       clear_previous_message, process_winner)
+from common import (games_in_progress, timers, user_board_message_ids, JOIN_MARKUP, LEAVE_MARKUP, user_messages,
+                    start_messages)
 from telegram.constants import ParseMode
 
 logging.basicConfig(
@@ -17,7 +19,6 @@ logger = logging.getLogger(__name__)
 
 waiting_room = {}
 user_states = {}
-start_messages = {}
 
 
 async def waiting_room_check(query, user_id) -> None:
@@ -363,83 +364,7 @@ async def handle_move(update, context):
     opponent_symbol = games_in_progress[opponent_id]['symbol']
     game['board'][move_index] = user_symbol if user_id == game['turn'] else opponent_symbol
 
-    winner = check_winner(game['board'])
-    if winner:
-        await announce_winner(context, user_id, winner)
-
-        del user_board_message_ids[user_id]
-        del user_board_message_ids[opponent_id]
-
-        if game['turn'] == user_id:
-            for t in tasks:
-                t.cancel()
-            await asyncio.gather(*tasks, return_exceptions=True)
-            del timers[user_id]
-        else:
-            del timers[opponent_id]
-
-        del games_in_progress[user_id]
-        del games_in_progress[opponent_id]
-
-        message_user = await context.bot.send_message(chat_id=user_id,
-                                                      text='Ви повернулися до головного меню.',
-                                                      reply_markup=JOIN_MARKUP)
-        message_opponent = await context.bot.send_message(chat_id=opponent_id,
-                                                          text='Ви повернулися до головного меню.',
-                                                          reply_markup=JOIN_MARKUP)
-        start_messages[user_id] = []
-        start_messages[opponent_id] = []
-
-        start_messages[user_id].append(message_user.message_id)
-        start_messages[opponent_id].append(message_opponent.message_id)
-        return
-    elif ' ' not in game['board']:
-        await announce_draw(context, user_id)
-
-        del user_board_message_ids[user_id]
-        del user_board_message_ids[opponent_id]
-
-        del games_in_progress[user_id]
-        del games_in_progress[opponent_id]
-
-        if game['turn'] == user_id:
-            for t in tasks:
-                t.cancel()
-            await asyncio.gather(*tasks, return_exceptions=True)
-            del timers[user_id]
-        else:
-            del timers[opponent_id]
-
-        message_user = await context.bot.send_message(chat_id=user_id,
-                                                      text='Ви повернулися до головного меню.',
-                                                      reply_markup=JOIN_MARKUP)
-        message_opponent = await context.bot.send_message(chat_id=opponent_id,
-                                                          text='Ви повернулися до головного меню.',
-                                                          reply_markup=JOIN_MARKUP)
-        start_messages[user_id] = []
-        start_messages[opponent_id] = []
-
-        start_messages[user_id].append(message_user)
-        start_messages[opponent_id].append(message_opponent)
-        return
-
-    for t in tasks:
-        t.cancel()
-    await asyncio.gather(*tasks, return_exceptions=True)
-
-    if user_id in timers:
-        job = context.job_queue.get_jobs_by_name(f'timer_{user_id}')
-        if job:
-            job[0].schedule_removal()
-        del timers[user_id]
-
-    game['turn'] = opponent_id if user_id == game['turn'] else user_id
-    games_in_progress[opponent_id]['turn'] = game['turn']
-
-    await show_board(context, user_id)
-    await show_board(context, opponent_id)
-    await set_turn_timer(context, opponent_id)
-
+    await process_winner(user_id, opponent_id, context)
     await query.answer()
 
 

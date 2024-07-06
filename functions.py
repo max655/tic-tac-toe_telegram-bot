@@ -2,7 +2,7 @@ import telegram.error
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import CallbackContext
 from datetime import timedelta
-from common import games_in_progress, timers, user_board_message_ids, JOIN_MARKUP, tasks, user_messages
+from common import games_in_progress, timers, user_board_message_ids, JOIN_MARKUP, tasks, user_messages, start_messages
 import random
 import asyncio
 
@@ -77,71 +77,7 @@ async def turn_timeout(context: CallbackContext) -> None:
         random_index = random.choice(empty_cells)
         game['board'][random_index] = game['symbol']
 
-        winner = check_winner(game['board'])
-        if winner:
-            await announce_winner(context, player_id, winner)
-
-            del user_board_message_ids[player_id]
-            del user_board_message_ids[opponent_id]
-
-            del games_in_progress[player_id]
-            del games_in_progress[opponent_id]
-
-            if game['turn'] == player_id:
-                for t in tasks:
-                    t.cancel()
-                await asyncio.gather(*tasks, return_exceptions=True)
-                del timers[player_id]
-            else:
-                del timers[opponent_id]
-
-            await context.bot.send_message(chat_id=player_id,
-                                           text='Ви повернулися до головного меню.',
-                                           reply_markup=JOIN_MARKUP)
-            await context.bot.send_message(chat_id=opponent_id,
-                                           text='Ви повернулися до головного меню.',
-                                           reply_markup=JOIN_MARKUP)
-            return
-        elif ' ' not in game['board']:
-            await announce_draw(context, player_id)
-
-            del user_board_message_ids[player_id]
-            del user_board_message_ids[opponent_id]
-
-            del games_in_progress[player_id]
-            del games_in_progress[opponent_id]
-
-            if game['turn'] == player_id:
-                for t in tasks:
-                    t.cancel()
-                await asyncio.gather(*tasks, return_exceptions=True)
-                del timers[player_id]
-            else:
-                del timers[opponent_id]
-
-            await context.bot.send_message(chat_id=player_id,
-                                           text='Ви повернулися до головного меню.',
-                                           reply_markup=JOIN_MARKUP)
-            await context.bot.send_message(chat_id=player_id,
-                                           text='Ви повернулися до головного меню.',
-                                           reply_markup=JOIN_MARKUP)
-            return
-
-        for t in tasks:
-            t.cancel()
-        await asyncio.gather(*tasks, return_exceptions=True)
-
-        if player_id in timers:
-            job = context.job_queue.get_jobs_by_name(f'timer_{player_id}')
-            if job:
-                job[0].schedule_removal()
-            del timers[player_id]
-
-        game['turn'] = opponent_id
-        games_in_progress[opponent_id]['turn'] = game['turn']
-        await show_board(context, player_id)
-        await show_board(context, opponent_id)
-        await set_turn_timer(context, opponent_id)
+        await process_winner(player_id, opponent_id, context)
 
 
 async def set_countdown(context: CallbackContext, user_id: int):
@@ -228,3 +164,83 @@ async def announce_draw(context, user_id):
     board_str = board_str.replace(' ', '⬜')
     await context.bot.send_message(chat_id=user_id, text=f"Нічия!\n\n{board_str}")
     await context.bot.send_message(chat_id=opponent_id, text=f"Нічия!\n\n{board_str}")
+
+
+async def process_winner(user_id, opponent_id, context):
+    game = games_in_progress.get(user_id)
+    winner = check_winner(game['board'])
+
+    if winner:
+        await announce_winner(context, user_id, winner)
+
+        del user_board_message_ids[user_id]
+        del user_board_message_ids[opponent_id]
+
+        del games_in_progress[user_id]
+        del games_in_progress[opponent_id]
+
+        if game['turn'] == user_id:
+            for t in tasks:
+                t.cancel()
+            await asyncio.gather(*tasks, return_exceptions=True)
+            del timers[user_id]
+        else:
+            del timers[opponent_id]
+
+        message_user = await context.bot.send_message(chat_id=user_id,
+                                                      text='Ви повернулися до головного меню.',
+                                                      reply_markup=JOIN_MARKUP)
+        message_opponent = await context.bot.send_message(chat_id=opponent_id,
+                                                          text='Ви повернулися до головного меню.',
+                                                          reply_markup=JOIN_MARKUP)
+        start_messages[user_id] = []
+        start_messages[opponent_id] = []
+
+        start_messages[user_id].append(message_user)
+        start_messages[opponent_id].append(message_opponent)
+        return
+    elif ' ' not in game['board']:
+        await announce_draw(context, user_id)
+
+        del user_board_message_ids[user_id]
+        del user_board_message_ids[opponent_id]
+
+        del games_in_progress[user_id]
+        del games_in_progress[opponent_id]
+
+        if game['turn'] == user_id:
+            for t in tasks:
+                t.cancel()
+            await asyncio.gather(*tasks, return_exceptions=True)
+            del timers[user_id]
+        else:
+            del timers[opponent_id]
+
+        message_user = await context.bot.send_message(chat_id=user_id,
+                                                      text='Ви повернулися до головного меню.',
+                                                      reply_markup=JOIN_MARKUP)
+        message_opponent = await context.bot.send_message(chat_id=opponent_id,
+                                                          text='Ви повернулися до головного меню.',
+                                                          reply_markup=JOIN_MARKUP)
+        start_messages[user_id] = []
+        start_messages[opponent_id] = []
+
+        start_messages[user_id].append(message_user)
+        start_messages[opponent_id].append(message_opponent)
+        return
+
+    for t in tasks:
+        t.cancel()
+    await asyncio.gather(*tasks, return_exceptions=True)
+
+    if user_id in timers:
+        job = context.job_queue.get_jobs_by_name(f'timer_{user_id}')
+        if job:
+            job[0].schedule_removal()
+        del timers[user_id]
+
+    game['turn'] = opponent_id
+    games_in_progress[opponent_id]['turn'] = game['turn']
+    await show_board(context, user_id)
+    await show_board(context, opponent_id)
+    await set_turn_timer(context, opponent_id)
