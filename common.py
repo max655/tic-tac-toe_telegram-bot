@@ -5,6 +5,7 @@ games_in_progress = {}
 timers = {}
 user_board_message_ids = {}
 start_messages = {}
+
 KEYBOARD_JOIN = [
             [InlineKeyboardButton("Перейти в зал очікування", callback_data='join_waiting')],
             [InlineKeyboardButton("Знайти гравця", callback_data='find_player')],

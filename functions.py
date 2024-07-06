@@ -196,8 +196,8 @@ async def process_winner(user_id, opponent_id, context):
         start_messages[user_id] = []
         start_messages[opponent_id] = []
 
-        start_messages[user_id].append(message_user)
-        start_messages[opponent_id].append(message_opponent)
+        start_messages[user_id].append(message_user.message_id)
+        start_messages[opponent_id].append(message_opponent.message_id)
         return
     elif ' ' not in game['board']:
         await announce_draw(context, user_id)
@@ -225,8 +225,8 @@ async def process_winner(user_id, opponent_id, context):
         start_messages[user_id] = []
         start_messages[opponent_id] = []
 
-        start_messages[user_id].append(message_user)
-        start_messages[opponent_id].append(message_opponent)
+        start_messages[user_id].append(message_user.message_id)
+        start_messages[opponent_id].append(message_opponent.message_id)
         return
 
     for t in tasks:
